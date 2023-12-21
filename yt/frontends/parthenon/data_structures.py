@@ -18,6 +18,7 @@ from .fields import ParthenonFieldInfo
 
 geom_map = {
     "UniformCartesian": (Geometry.CARTESIAN,("x","y","z")),
+    #"UniformCartesian": (Geometry.SPHERICAL,("r","theta","phi")),
     "UniformCylindrical": (Geometry.CYLINDRICAL,("r","theta","z")),
     "UniformSpherical": (Geometry.SPHERICAL,("r","theta","phi")),
 }
@@ -252,7 +253,12 @@ class ParthenonDataset(Dataset):
                 fname = self._handle["Info"].attrs["ComponentNames"][
                     j + component_name_offset
                 ]
-                self._field_map[fname] = (dname, j)
+                # Mark scalar fields as having 0 dimensions
+                # TODO properly support tensors
+                if num_component == 1:
+                    self._field_map[fname] = (dname, -1)
+                else:
+                    self._field_map[fname] = (dname, j)
                 k += 1
             component_name_offset = int(component_name_offset + num_component)
 

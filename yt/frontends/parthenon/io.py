@@ -61,21 +61,29 @@ class IOHandlerParthenon(BaseIOHandler):
                         nx, ny, nz = mesh.mesh_dims // self.ds.index.mesh_factors
                         data = np.empty(mesh.mesh_dims, dtype="=f8")
                         for n, id in enumerate(mesh.mesh_blocks):
-                            data[
-                                ii[n] * nx : (ii[n] + 1) * nx,
-                                jj[n] * ny : (jj[n] + 1) * ny,
-                                kk[n] * nz : (kk[n] + 1) * nz,
-                            ] = ds[id, fdi, :, :, :].transpose()
+                            if fdi >= 0:
+                                data[
+                                    ii[n] * nx : (ii[n] + 1) * nx,
+                                    jj[n] * ny : (jj[n] + 1) * ny,
+                                    kk[n] * nz : (kk[n] + 1) * nz,
+                                ] = ds[id, fdi, :, :, :].transpose()
+                            else:
+                                data[
+                                    ii[n] * nx : (ii[n] + 1) * nx,
+                                    jj[n] * ny : (jj[n] + 1) * ny,
+                                    kk[n] * nz : (kk[n] + 1) * nz,
+                                ] = ds[id, :, :, :].transpose()
                         ind += mesh.select(selector, data, rv[field], ind)  # caches
                 else:
                     for gs in grid_sequences(chunk.objs):
                         start = gs[0].id - gs[0]._id_offset
                         end = gs[-1].id - gs[-1]._id_offset + 1
-                        # Deprecate this fallback on next major Parthenon release
-                        if self.ds.output_format_version == -1:
-                            data = ds[start:end, :, :, :, fdi].transpose()
-                        else:
+
+                        if fdi >= 0:
                             data = ds[start:end, fdi, :, :, :].transpose()
+                        else:
+                            data = ds[start:end, :, :, :].transpose()
+
                         for i, g in enumerate(gs):
                             ind += g.select(selector, data[..., i], rv[field], ind)
             last_dname = dname
@@ -97,11 +105,10 @@ class IOHandlerParthenon(BaseIOHandler):
             for gs in grid_sequences(chunk.objs):
                 start = gs[0].id - gs[0]._id_offset
                 end = gs[-1].id - gs[-1]._id_offset + 1
-                # Deprecate this fallback on next major Parthenon release
-                if self.ds.output_format_version == -1:
-                    data = ds[start:end, :, :, :, fdi].transpose()
-                else:
+                if fdi >= 0:
                     data = ds[start:end, fdi, :, :, :].transpose()
+                else:
+                    data = ds[start:end, :, :, :].transpose()
                 for i, g in enumerate(gs):
                     rv[g.id][field] = np.asarray(data[..., i], "=f8")
         return rv

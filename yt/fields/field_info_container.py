@@ -228,6 +228,7 @@ class FieldInfoContainer(UserDict):
             geometry is Geometry.POLAR
             or geometry is Geometry.CYLINDRICAL
             or geometry is Geometry.SPHERICAL
+            or geometry is Geometry.TRANSFORMED_SPHERICAL
         ):
             aliases: list[FieldName]
             for field in sorted(self.field_list):

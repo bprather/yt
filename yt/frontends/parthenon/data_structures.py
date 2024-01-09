@@ -15,10 +15,13 @@ from yt.utilities.chemical_formulas import compute_mu
 from yt.utilities.file_handler import HDF5FileHandler
 
 from .fields import ParthenonFieldInfo
+from .misc import parse_parthenon_input
+from .transforms import *
 
 geom_map = {
+    "TransformedSpherical": (Geometry.TRANSFORMED_SPHERICAL,("r","theta","phi")),
+    "TransformedCartesian": (Geometry.TRANSFORMED_CARTESIAN,("x","y","z")),
     "UniformCartesian": (Geometry.CARTESIAN,("x","y","z")),
-    #"UniformCartesian": (Geometry.SPHERICAL,("r","theta","phi")),
     "UniformCylindrical": (Geometry.CYLINDRICAL,("r","theta","z")),
     "UniformSpherical": (Geometry.SPHERICAL,("r","theta","phi")),
 }
@@ -162,8 +165,35 @@ class ParthenonDataset(Dataset):
             self.logarithmic = False
         self._magnetic_factor = get_magnetic_normalization(magnetic_normalization)
 
-        self.geometry = geom_map[self._handle["Info"].attrs["Coordinates"]][0]
-        axis_order = geom_map[self._handle["Info"].attrs["Coordinates"]][1]
+        input = parse_parthenon_input(self._handle["Input"].attrs["File"])
+
+        # Some special cases for coordinate transformations
+        # If specified by parameters, don't transform at all
+        if parameters.get("native", False):
+            self.geometry = Geometry.CARTESIAN
+            axis_order = ("x","y","z")
+        else:
+            # Detect old versions of KHARMA which mis-label their coordinate system
+            if self._handle["Info"].attrs["Coordinates"] == "UniformCartesian" and \
+                'coordinates' in input and 'base' in input['coordinates'] and \
+                input['coordinates']['base'] in ["spherical_ks", "ks"]:
+                self.geometry = Geometry.TRANSFORMED_SPHERICAL
+                axis_order = ("r","theta","phi")
+            else:
+                self.geometry = geom_map[self._handle["Info"].attrs["Coordinates"]][0]
+                axis_order = geom_map[self._handle["Info"].attrs["Coordinates"]][1]
+
+        if self.geometry == Geometry.TRANSFORMED_SPHERICAL:
+            # Parse KHARMA transformations
+            # TODO put other Parthenon-based transforming codes/transforms here
+            if input['coordinates']['transform'] in ['null']:
+                self.transform = SphericalTransform()
+            elif input['coordinates']['transform'] in ['modified', 'mks']:
+                self.transform = SphericalModified(input['coordinates'])
+            elif input['coordinates']['transform'] in ['funky', 'fmks']:
+                self.transform = SphericalFunkyModified(input['coordinates'])
+        elif self.geometry == Geometry.TRANSFORMED_CARTESIAN:
+            raise NotImplementedError("Transformed Cartesian coordinates are not yet supported!")
 
         Dataset.__init__(
             self,
@@ -313,6 +343,73 @@ class ParthenonDataset(Dataset):
                 "Plasma composition could not be determined in data file. Falling back to fully ionized primodial composition."
             )
             self.mu = self.parameters.get("mu", compute_mu(self.default_species_fields))
+
+    def _get_info(self, name, default=None):
+        try:
+            return self._handle["Info"].attrs[name]
+        except:
+            return default
+
+    def get_block_shape(self):
+        return self._get_info("MeshBlockSize")
+
+    def get_block_boundaries(self):
+        if 'BlockBounds' in self.__dict__:
+            return self.BlockBounds
+        
+        nghost = self._get_info("NGhost", -1)
+        includes_ghost = self._get_info("IncludesGhost", 0)
+        mbsize = self.get_block_shape()
+        nblocks = self._get_info("NumMeshBlocks")
+
+        # fill in offset and block bounds
+        offset = [0, 0, 0]
+        for i in range(3):
+            if mbsize[i] > 1:
+                offset[i] = nghost * includes_ghost
+
+        # Read in coordinates
+        def load_coord(coord_i):
+            coord_name = ["x", "y", "z"][coord_i]
+
+            coordf = self._handle["/Locations/" + coord_name][:, :]
+            vol_loc = "/VolumeLocations/" + coord_name
+            if vol_loc in self._handle:
+                coord = self._handle[vol_loc][:, :]
+            else:
+                coord = np.zeros((nblocks, mbsize[coord_i]))
+                for bId in range(nblocks):
+                    for cId in range(mbsize[coord_i]):
+                        coord[bId, cId] = 0.5 * (
+                            coordf[bId, cId] + coordf[bId, cId + 1]
+                        )
+            return coord, coordf
+
+        x, xf = load_coord(0)
+        y, yf = load_coord(1)
+        z, zf = load_coord(2)
+
+        # calculate BlockBounds
+        self.BlockBounds = [None] * nblocks
+        iOffsets = [
+            offset[0],
+            mbsize[0] - offset[0],
+            offset[1],
+            mbsize[1] - offset[1],
+            offset[2],
+            mbsize[2] - offset[2],
+        ]
+        eps = 1e-8
+        for ib in range(nblocks):
+            self.BlockBounds[ib] = [
+                xf[ib, iOffsets[0]] - eps,
+                xf[ib, iOffsets[1]] + eps,
+                yf[ib, iOffsets[2]] - eps,
+                yf[ib, iOffsets[3]] + eps,
+                zf[ib, iOffsets[4]] - eps,
+                zf[ib, iOffsets[5]] + eps,
+            ]
+        return self.BlockBounds
 
     @classmethod
     def _is_valid(cls, filename: str, *args, **kwargs) -> bool:

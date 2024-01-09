@@ -49,6 +49,7 @@ from yt.geometry.coordinates.api import (
     PolarCoordinateHandler,
     SpectralCubeCoordinateHandler,
     SphericalCoordinateHandler,
+    TransformedSphericalCoordinateHandler,
 )
 from yt.geometry.geometry_handler import Index
 from yt.units import UnitContainer, _wrap_display_ytarray, dimensions
@@ -813,6 +814,9 @@ class Dataset(abc.ABC):
             # It shouldn't be required to reset self.no_cgs_equiv_length
             # to the default value (False) here, but it's still necessary
             # see https://github.com/yt-project/yt/pull/3618
+            self.no_cgs_equiv_length = False
+        elif self.geometry is Geometry.TRANSFORMED_SPHERICAL:
+            cls = TransformedSphericalCoordinateHandler
             self.no_cgs_equiv_length = False
         elif self.geometry is Geometry.GEOGRAPHIC:
             cls = GeographicCoordinateHandler

@@ -226,6 +226,7 @@ class PlotWindow(ImagePlotContainer, abc.ABC):
                 or geometry is Geometry.SPHERICAL
                 or geometry is Geometry.GEOGRAPHIC
                 or geometry is Geometry.INTERNAL_GEOGRAPHIC
+                or geometry is Geometry.TRANSFORMED_SPHERICAL
             ):
                 mylog.info("Setting origin='native' for %s geometry.", geometry)
                 origin = "native"

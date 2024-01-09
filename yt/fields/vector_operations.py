@@ -476,6 +476,7 @@ def create_vector_fields(
         geometry is Geometry.POLAR
         or geometry is Geometry.CYLINDRICAL
         or geometry is Geometry.SPHERICAL
+        or geometry is Geometry.TRANSFORMED_SPHERICAL
     ):  # Create Cartesian fields for curvilinear coordinates
         if geometry is Geometry.POLAR:
 
@@ -520,6 +521,50 @@ def create_vector_fields(
                     return data[(ftype, f"{basename}_r")] * np.sin(
                         data[(ftype, "theta")]
                     ) + data[(ftype, f"{basename}_theta")] * np.cos(
+                        data[(ftype, "theta")]
+                    )
+                elif data.ds.dimensionality == 3:
+                    return (
+                        data[(ftype, f"{basename}_r")]
+                        * np.sin(data[(ftype, "theta")])
+                        * np.cos(data[(ftype, "phi")])
+                        + data[(ftype, f"{basename}_theta")]
+                        * np.cos(data[(ftype, "theta")])
+                        * np.cos(data[(ftype, "phi")])
+                        - data[(ftype, f"{basename}_phi")]
+                        * np.sin(data[(ftype, "phi")])
+                    )
+
+            def _cartesian_y(field, data):
+                if data.ds.dimensionality == 2:
+                    return data[(ftype, f"{basename}_r")] * np.cos(
+                        data[(ftype, "theta")]
+                    ) - data[f"{basename}_theta"] * np.sin(data[(ftype, "theta")])
+                elif data.ds.dimensionality == 3:
+                    return (
+                        data[(ftype, f"{basename}_r")]
+                        * np.sin(data[(ftype, "theta")])
+                        * np.sin(data[(ftype, "phi")])
+                        + data[(ftype, f"{basename}_theta")]
+                        * np.cos(data[(ftype, "theta")])
+                        * np.sin(data[(ftype, "phi")])
+                        + data[(ftype, f"{basename}_phi")]
+                        * np.cos(data[(ftype, "phi")])
+                    )
+
+            def _cartesian_z(field, data):
+                return data[(ftype, f"{basename}_r")] * np.cos(
+                    data[(ftype, "theta")]
+                ) - data[(ftype, f"{basename}_theta")] * np.sin(data[(ftype, "theta")])
+
+        elif geometry is Geometry.TRANSFORMED_SPHERICAL:
+
+            def _cartesian_x(field, data):
+                if data.ds.dimensionality == 2:
+                    r, theta, _ = data.ds.transform(np.array(data[(ftype, f"{basename}_r")], data[(ftype, f"{basename}_theta")], ))
+                    return r * np.sin(
+                        data[(ftype, "theta")]
+                    ) + data.ds.transform(data[(ftype, f"{basename}_theta")]) * np.cos(
                         data[(ftype, "theta")]
                     )
                 elif data.ds.dimensionality == 3:

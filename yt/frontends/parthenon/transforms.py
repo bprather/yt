@@ -135,8 +135,8 @@ class SphericalFunkyModified(SphericalExponential):
 
     def _dxdX(self, x, visual=False):
         if visual:
-            # Reflect across x=0.5 and calculate widths at zone ends, to combat some nasty-looking gaps
-            x[1] = np.where(x[1] > 0.5, 1. - x[1], x[1])
+            # Reflect across x=0.5 and calculate widths at zone ends, for symmetry
+            x[1] = np.where(x[1] < 0.5, 1. - x[1], x[1])
         # Otherwise standard
         dxdX = np.zeros([3, 3, *x.shape[1:]])
         dxdX[0, 0] = np.exp(x[0])
@@ -154,9 +154,6 @@ class SphericalFunkyModified(SphericalExponential):
                                                      ((1. + self.poly_alpha) * self.poly_xt) -
                                                     (1. - self.hslope) * np.pi * np.cos(2. * np.pi * x[1]))
         dxdX[2, 2] = 1
-        if visual:
-            dxdX[1, 0] *= 1.05
-            dxdX[1, 1] *= 1.05
         return dxdX
 
 

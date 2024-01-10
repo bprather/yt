@@ -165,8 +165,8 @@ class ParthenonDataset(Dataset):
             self.logarithmic = False
         self._magnetic_factor = get_magnetic_normalization(magnetic_normalization)
 
+        # Could be more judicious and not fully re-parse here
         input = parse_parthenon_input(self._handle["Input"].attrs["File"])
-
         # Some special cases for coordinate transformations
         # If specified by parameters, don't transform at all
         if parameters.get("native", False):
@@ -245,6 +245,8 @@ class ParthenonDataset(Dataset):
                     f"Overriding existing 'f{key}' key in ds.parameters from data 'Params'"
                 )
             self.parameters[key] = val
+        # Additionally record the input
+        self.parameters['input'] = parse_parthenon_input(self._handle["Input"].attrs["File"])
 
         xmin, xmax = self._handle["Info"].attrs["RootGridDomain"][0:2]
         ymin, ymax = self._handle["Info"].attrs["RootGridDomain"][3:5]

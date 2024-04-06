@@ -63,7 +63,7 @@ class SphericalExponential(SphericalTransform):
     def r(self, x):
         return np.exp(x[0])
 
-    def _dxdX(self, x):
+    def _dxdX(self, x, visual=False):
         dxdX = np.zeros([3, 3, *x.shape[1:]])
         dxdX[0, 0] = np.exp(x[0])
         dxdX[1, 1] = 1
@@ -83,7 +83,7 @@ class SphericalHyperExponential(SphericalTransform):
         super_dist = np.where(x[0] > self.xn1br, x[0] - self.xn1br, 0.0)
         return np.exp(x[0] + self.cpow2 * np.power(super_dist, self.npow2))
 
-    def _dxdX(self, x):
+    def _dxdX(self, x, visual=False):
         super_dist = np.where(x[0] > self.xn1br, x[0] - self.xn1br, 0.0)
         dxdX = np.zeros([3, 3, *x.shape[1:]])
         dxdX[0, 0] = np.exp(x[0] + self.cpow2 * np.power(super_dist, self.npow2)) \
@@ -103,7 +103,7 @@ class SphericalModified(SphericalExponential):
     def th(self, x):
         return np.pi*x[1] + ((1. - self.hslope)/2.)*np.sin(2.*np.pi*x[1])
 
-    def _dxdX(self, x):
+    def _dxdX(self, x, visual=False):
         dxdX = np.zeros([3, 3, *x.shape[1:]])
         dxdX[0, 0] = np.exp(x[0])
         dxdX[1, 1] = np.pi - (self.hslope - 1.) * np.pi * np.cos(2. * np.pi * x[1])
